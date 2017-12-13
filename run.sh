@@ -1,1 +1,1 @@
-python3 FastText.py
+python3 XGB.py

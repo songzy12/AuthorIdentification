@@ -23,6 +23,7 @@ y = np.array([a2c[a] for a in df.author])
 y = to_categorical(y)
 
 def preprocess(text):
+    # seperate signs out
     text = text.replace("' ", " ' ")
     signs = set(',.:;"?!')
     prods = set(text) & signs
@@ -55,7 +56,8 @@ tokenizer = Tokenizer(lower=False, filters='')
 tokenizer.fit_on_texts(docs)
 num_words = sum([1 for _, v in tokenizer.word_counts.items() if v >= min_count])
 
-tokenizer = Tokenizer(num_words=num_words, lower=False, filters='')
+#tokenizer = Tokenizer(num_words=num_words, lower=False, filters='')
+tokenizer = Tokenizer(num_words=num_words, lower=True, filters='')
 tokenizer.fit_on_texts(docs)
 docs = tokenizer.texts_to_sequences(docs)
 

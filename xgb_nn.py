@@ -40,6 +40,7 @@ from keras import backend as K
 from sklearn.linear_model import SGDClassifier as sgd
 from keras.preprocessing.text import Tokenizer
 from keras.callbacks import EarlyStopping
+from sklearn.decomposition import NMF, LatentDirichletAllocation
 
 # Read data
 train = "./input/train.csv"

@@ -1,3 +1,7 @@
+## TODO
+
+topics
+
 ## Evaluation
 
 log loss
@@ -12,7 +16,13 @@ look how long are sentences,
 
 check the way of using commas.
 
+
+
 ## XGBoost0
+
+**score: 0.28895, rank: 45**
+
+LDA Topic Model
 
 **score: 0.29064, rank: 49**
 

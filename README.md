@@ -20,6 +20,8 @@ check the way of using commas.
 
 ## XGBoost0
 
+**score: 0.28889, rank:45**
+
 **score: 0.28895, rank: 45**
 
 LDA Topic Model

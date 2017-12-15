@@ -44,6 +44,10 @@ from sklearn.linear_model import SGDClassifier as sgd
 from keras.preprocessing.text import Tokenizer
 from keras.callbacks import EarlyStopping
 
+from nltk.tag import StanfordNERTagger
+
+from sner import Ner 
+
 import code
 
 eng_stopwords = set(stopwords.words("english"))
@@ -74,6 +78,71 @@ train_y = train_df['author'].map(author_mapping_dict)
 train_id = train_df['id'].values
 test_id = test_df['id'].values
 
+
+#st = StanfordNERTagger('../stanford-ner-2017-06-09/classifiers/english.all.3class.distsim.crf.ser.gz',
+#                      '../stanford-ner-2017-06-09/stanford-ner.jar',
+#                      encoding='utf-8')
+st = Ner(host='localhost',port=9199)
+
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+sid = SentimentIntensityAnalyzer()
+
+for df in [train_df, test_df]:
+    df['split'] = df['text'].apply(nltk.word_tokenize)
+    print('split finished...')
+
+    df['sid'] = df['text'].apply(sid.polarity_scores)
+    for k in ['neu', 'compound', 'pos', 'neg']:
+        df['sid_'+k] = df['sid'].apply(lambda x: x[k])
+    print('polarity_scores finished...') 
+
+    df['pos_tag'] = df['split'].apply(lambda x: [w[1] for w in nltk.pos_tag(x)])
+    for pos in ['CC', 'RB', 'IN', 'NN', 'VB', 'VBP', 'JJ', 'PRP', 'TO', 'DT']:
+        df['n_pos_' + pos] = df['pos_tag'].apply(lambda x: x.count(pos))
+    print('pos_tag finished...')
+
+
+    df['st'] = df['text'].apply(lambda x: [w[1] for w in st.get_entities(x)])
+    df['n_person'] = df['st'].apply(lambda x: x.count('PERSON'))
+    df['n_location'] = df['st'].apply(lambda x: x.count('LOCATION'))
+    print('NER finished...')
+
+    ## Number of words in the text ##
+    df["num_words"] = df["split"].apply(len)
+
+    ## Number of unique words in the text ##
+    df["num_unique_words"] = df["split"].apply(lambda x: len(set(x)))
+    
+    ## Number of characters in the text ##
+    df["num_chars"] = df["text"].apply(len)
+    
+    ## Number of stopwords in the text ##
+    df["num_stopwords"] = df["split"].apply(lambda x: len([w for w in x if w in eng_stopwords]))
+    
+    ## Number of punctuations in the text ##
+    df["num_punctuations"] = df['split'].apply(lambda x: len([c for c in str(x) if c in string.punctuation]) )
+    
+    ## Number of title case words in the text ##
+    df["num_words_upper"] = df["split"].apply(lambda x: len([w for w in x if w.isupper()]))
+    
+    ## Number of title case words in the text ##
+    df["num_words_title"] = df["split"].apply(lambda x: len([w for w in x if w.istitle()]))
+    
+    ## Average length of the words in the text ##
+    df["mean_word_len"] = df["split"].apply(lambda x: np.mean([len(w) for w in x]))
+
+
+    anchor_words = ['the', 'a', 'appear', 'little', 'was', 'one', 'two', 'three', 'ten', 'is', 
+                    'are', 'ed', 'however', 'to', 'into', 'about', 'th', 'er', 'ex', 'an', 
+                    'ground', 'any', 'silence', 'wall']
+
+    gender_words = ['man', 'woman', 'he', 'she', 'her', 'him', 'male', 'female']
+
+    for word in anchor_words + gender_words:
+        df['n_'+word] = df["split"].apply(lambda x: len([w for w in x if w.lower() == word]))
+
+    
+
 from sklearn.decomposition import NMF, LatentDirichletAllocation
 
 ### Fit transform the tfidf vectorizer ###
@@ -82,7 +151,7 @@ full_tfidf = tfidf_vec.fit_transform(train_df['text'].values.tolist() + test_df[
 train_tfidf = tfidf_vec.transform(train_df['text'].values.tolist())
 test_tfidf = tfidf_vec.transform(test_df['text'].values.tolist())
 
-no_topics = 100 
+no_topics = 20 
 lda = LatentDirichletAllocation(n_topics=no_topics, max_iter=5, learning_method='online', learning_offset=50.,random_state=0).fit(full_tfidf)
 train_lda = pd.DataFrame(lda.transform(train_tfidf))
 test_lda = pd.DataFrame(lda.transform(test_tfidf))
@@ -92,6 +161,8 @@ test_lda.columns = ['lda_'+str(i) for i in range(no_topics)]
 train_df = pd.concat([train_df, train_lda], axis=1)
 test_df = pd.concat([test_df, test_lda], axis=1)
 del full_tfidf, train_tfidf, test_tfidf, train_lda, test_lda
+
+print("LDA finished...")
 
 # load the GloVe vectors in a dictionary:
 
@@ -137,6 +208,7 @@ glove_vecs_train,glove_vecs_test,embeddings_index = doGlove(train_df['text'],tes
 train_df[['sent_vec_'+str(i) for i in range(100)]] = pd.DataFrame(glove_vecs_train.tolist())
 test_df[['sent_vec_'+str(i) for i in range(100)]] = pd.DataFrame(glove_vecs_test.tolist())
 
+print("Glove sentence vector finished...")
 
 # Using Neural Networks and Facebook's Fasttext
 earlyStopping=EarlyStopping(monitor='val_loss', patience=0, verbose=0, mode='auto')
@@ -360,46 +432,15 @@ def doFastText(X_train,X_test,Y_train):
     return doAddFastText(X_train,X_test,pred_train,pred_full_test/5)
 
 train_df,test_df = doFastText(train_df,test_df,train_y)
+print('FastText finished...')
 train_df,test_df = doNN(train_df,test_df,train_y)
+print('NN finished...')
 train_df,test_df = doNN_glove(train_df,test_df,train_y,glove_vecs_train,glove_vecs_test)
-
-## Number of words in the text ##
-train_df["num_words"] = train_df["text"].apply(lambda x: len(str(x).split()))
-test_df["num_words"] = test_df["text"].apply(lambda x: len(str(x).split()))
-
-## Number of unique words in the text ##
-train_df["num_unique_words"] = train_df["text"].apply(lambda x: len(set(str(x).split())))
-test_df["num_unique_words"] = test_df["text"].apply(lambda x: len(set(str(x).split())))
-
-## Number of characters in the text ##
-train_df["num_chars"] = train_df["text"].apply(lambda x: len(str(x)))
-test_df["num_chars"] = test_df["text"].apply(lambda x: len(str(x)))
-
-## Number of stopwords in the text ##
-train_df["num_stopwords"] = train_df["text"].apply(lambda x: len([w for w in str(x).lower().split() if w in eng_stopwords]))
-test_df["num_stopwords"] = test_df["text"].apply(lambda x: len([w for w in str(x).lower().split() if w in eng_stopwords]))
-
-## Number of punctuations in the text ##
-train_df["num_punctuations"] =train_df['text'].apply(lambda x: len([c for c in str(x) if c in string.punctuation]) )
-test_df["num_punctuations"] =test_df['text'].apply(lambda x: len([c for c in str(x) if c in string.punctuation]) )
-
-## Number of title case words in the text ##
-train_df["num_words_upper"] = train_df["text"].apply(lambda x: len([w for w in str(x).split() if w.isupper()]))
-test_df["num_words_upper"] = test_df["text"].apply(lambda x: len([w for w in str(x).split() if w.isupper()]))
-
-## Number of title case words in the text ##
-train_df["num_words_title"] = train_df["text"].apply(lambda x: len([w for w in str(x).split() if w.istitle()]))
-test_df["num_words_title"] = test_df["text"].apply(lambda x: len([w for w in str(x).split() if w.istitle()]))
-
-## Average length of the words in the text ##
-train_df["mean_word_len"] = train_df["text"].apply(lambda x: np.mean([len(w) for w in str(x).split()]))
-test_df["mean_word_len"] = test_df["text"].apply(lambda x: np.mean([len(w) for w in str(x).split()]))
-
+print('NN Glove finished...')
 
 cols_to_drop = ['id', 'text']
 train_X = train_df.drop(cols_to_drop+['author'], axis=1)
 test_X = test_df.drop(cols_to_drop, axis=1)
-
 
 def runXGB(train_X, train_y, test_X, test_y=None, test_X2=None, seed_val=0, child=1, colsample=0.3):
     param = {}
@@ -500,6 +541,7 @@ train_df["nb_cvec_mws"] = pred_train[:,2]
 test_df["nb_cvec_eap"] = pred_full_test[:,0]
 test_df["nb_cvec_hpl"] = pred_full_test[:,1]
 test_df["nb_cvec_mws"] = pred_full_test[:,2]
+print("Naive Bayesian Count Vector finished...")
 
 
 ### Fit transform the tfidf vectorizer ###
@@ -529,6 +571,7 @@ train_df["nb_cvec_char_mws"] = pred_train[:,2]
 test_df["nb_cvec_char_eap"] = pred_full_test[:,0]
 test_df["nb_cvec_char_hpl"] = pred_full_test[:,1]
 test_df["nb_cvec_char_mws"] = pred_full_test[:,2]
+print("Naive Bayersian Count Vector Char finished...")
 
 
 ### Fit transform the tfidf vectorizer ###
@@ -558,7 +601,7 @@ train_df["nb_tfidf_char_mws"] = pred_train[:,2]
 test_df["nb_tfidf_char_eap"] = pred_full_test[:,0]
 test_df["nb_tfidf_char_hpl"] = pred_full_test[:,1]
 test_df["nb_tfidf_char_mws"] = pred_full_test[:,2]
-
+print("Naive Bayersian TFIDF Vector Char finished...")
 
 n_comp = 20
 svd_obj = TruncatedSVD(n_components=n_comp, algorithm='arpack')
@@ -572,9 +615,7 @@ train_df = pd.concat([train_df, train_svd], axis=1)
 test_df = pd.concat([test_df, test_svd], axis=1)
 del full_tfidf, train_tfidf, test_tfidf, train_svd, test_svd
 
-
-
-cols_to_drop = ['id', 'text']
+cols_to_drop = ['id', 'text', 'split', 'sid', 'pos_tag', 'st']
 train_X = train_df.drop(cols_to_drop+['author'], axis=1)
 test_X = test_df.drop(cols_to_drop, axis=1)
 
@@ -599,3 +640,10 @@ out_df.insert(0, 'id', test_id)
 out_df.to_csv("result.csv", index=False)
 
 code.interact(local=locals())
+
+file_name = 'output/train_df.pkl'
+train_df.to_pickle(file_name)  
+train_df = pd.read_pickle(file_name)
+file_name = 'output/test_df.pkl'
+test_df.to_pickle(file_name)
+test_df = pd.read_pickle(file_name)

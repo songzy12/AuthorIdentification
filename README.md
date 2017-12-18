@@ -1,6 +1,18 @@
+## Solution
+
+Rank 25: https://www.kaggle.com/c/spooky-author-identification/discussion/45918
+
 ## TODO
 
-topics
+grammar: http://www.nltk.org/book/ch05.html
+
+
+
+sentiment: positive, negative
+
+name: fraction of names
+
+gender: woman, man, he, she, her, him, male, female
 
 ## Evaluation
 
@@ -8,21 +20,11 @@ log loss
 
 
 
-Look at the characteristic words, 
+## LDA
 
-check the topic used by the author, 
+**score: 0.28889, rank:45**, topic number 100
 
-look how long are sentences, 
-
-check the way of using commas.
-
-
-
-## XGBoost0
-
-**score: 0.28889, rank:45**
-
-**score: 0.28895, rank: 45**
+**score: 0.28895, rank: 45**, topic number 20
 
 LDA Topic Model
 

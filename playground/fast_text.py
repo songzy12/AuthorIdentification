@@ -1,9 +1,6 @@
 import numpy as np
-
 import pandas as pd
-
 from collections import defaultdict
-
 import keras
 import keras.backend as K
 from keras.layers import Dense, GlobalAveragePooling1D, Embedding
@@ -17,10 +14,6 @@ from sklearn.model_selection import train_test_split
 
 np.random.seed(7)
 
-df = pd.read_csv('input/train.csv')
-a2c = {'EAP': 0, 'HPL' : 1, 'MWS' : 2}
-y = np.array([a2c[a] for a in df.author])
-y = to_categorical(y)
 
 def preprocess(text):
     # seperate signs out
@@ -31,44 +24,47 @@ def preprocess(text):
         return text
 
     for sign in prods:
-        text = text.replace(sign, ' {} '.format(sign) )
+        text = text.replace(sign, ' {} '.format(sign))
     return text
+
 
 def create_docs(df, n_gram_max=2):
     def add_ngram(q, n_gram_max):
-            ngrams = []
-            for n in range(2, n_gram_max+1):
-                for w_index in range(len(q)-n+1):
-                    ngrams.append('--'.join(q[w_index:w_index+n]))
-            return q + ngrams
-        
+        ngrams = []
+        for n in range(2, n_gram_max + 1):
+            for w_index in range(len(q) - n + 1):
+                ngrams.append('--'.join(q[w_index:w_index + n]))
+        return q + ngrams
+
     docs = []
     for doc in df.text:
         doc = preprocess(doc).split()
         docs.append(' '.join(add_ngram(doc, n_gram_max)))
-    
+
     return docs
 
+
+df = pd.read_csv('../input/train.csv')
+a2c = {'EAP': 0, 'HPL': 1, 'MWS': 2}
+y = np.array([a2c[a] for a in df.author])
+y = to_categorical(y)
+
 min_count = 2
+maxlen = 256
 
 docs = create_docs(df)
 tokenizer = Tokenizer(lower=False, filters='')
 tokenizer.fit_on_texts(docs)
-num_words = sum([1 for _, v in tokenizer.word_counts.items() if v >= min_count])
-
-#tokenizer = Tokenizer(num_words=num_words, lower=False, filters='')
+num_words = sum(
+    [1 for _, v in tokenizer.word_counts.items() if v >= min_count])
 tokenizer = Tokenizer(num_words=num_words, lower=True, filters='')
 tokenizer.fit_on_texts(docs)
 docs = tokenizer.texts_to_sequences(docs)
-
-maxlen = 256
-
 docs = pad_sequences(sequences=docs, maxlen=maxlen)
+x_train, x_test, y_train, y_test = train_test_split(docs, y, test_size=0.2)
 
-input_dim = np.max(docs) + 1
-embedding_dims = 20
 
-def create_model(embedding_dims=20, optimizer='adam'):
+def create_model(input_dim, embedding_dims, optimizer='adam'):
     model = Sequential()
     model.add(Embedding(input_dim=input_dim, output_dim=embedding_dims))
     model.add(GlobalAveragePooling1D())
@@ -79,26 +75,27 @@ def create_model(embedding_dims=20, optimizer='adam'):
                   metrics=['accuracy'])
     return model
 
-epochs = 25
-x_train, x_test, y_train, y_test = train_test_split(docs, y, test_size=0.2)
 
-model = create_model()
-hist = model.fit(x_train, y_train,
+input_dim = np.max(docs) + 1
+embedding_dims = 20
+model = create_model(input_dim, embedding_dims)
+
+epochs = 25
+hist = model.fit(x_train,
+                 y_train,
                  batch_size=16,
                  validation_data=(x_test, y_test),
                  epochs=epochs,
                  callbacks=[EarlyStopping(patience=2, monitor='val_loss')])
+model.save('../output/my_model.h5')
 
-model.save('my_model.h5')
-
-test_df = pd.read_csv('input/test.csv')
+test_df = pd.read_csv('../input/test.csv')
 docs = create_docs(test_df)
 docs = tokenizer.texts_to_sequences(docs)
 docs = pad_sequences(sequences=docs, maxlen=maxlen)
 y = model.predict_proba(docs)
 
-result = pd.read_csv('output/sample_submission.csv')
+result = pd.read_csv('../input/sample_submission.csv')
 for a, i in a2c.items():
     result[a] = y[:, i]
-
-result.to_csv('output/FastText.csv', encoding='utf-8', index=False)
+result.to_csv('../output/submission.csv', encoding='utf-8', index=False)

@@ -1,8 +1,5 @@
 import numpy as np
 import pandas as pd
-from collections import defaultdict
-import keras
-import keras.backend as K
 from keras.layers import Dense, GlobalAveragePooling1D, Embedding
 from keras.callbacks import EarlyStopping
 from keras.models import Sequential

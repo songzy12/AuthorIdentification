@@ -3,3 +3,4 @@ output
 *.csv
 *.h5
 *.swp
+__pycache__

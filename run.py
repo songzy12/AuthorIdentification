@@ -4,6 +4,7 @@ import pandas as pd
 from feature_extractor.text_feature_extractor import add_text_feature
 from feature_extractor.embedding_feature_extractor import add_glove_feature
 from model.neural_network import doNN, doFastText, doNN_glove
+from model.naive_bayes import run_mnbs
 from model.xgboost import run_kfold_xgb
 
 # Read the train and test dataset and check the top few lines #
@@ -39,6 +40,8 @@ train_df, test_df = doNN_glove(
     train_df, test_df, train_y, glove_vecs_train, glove_vecs_test
 )
 print("NN Glove finished...")
+
+train_df, test_df = run_mnbs(train_df, train_y, test_df)
 
 cols_to_drop = ["id", "text", "split", "sid", "pos_tag"]
 train_X = train_df.drop(cols_to_drop + ["author"], axis=1)

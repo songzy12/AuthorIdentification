@@ -1,56 +1,60 @@
 import pandas as pd
 
-
 from feature_extractor.text_feature_extractor import add_text_feature
 from feature_extractor.embedding_feature_extractor import add_glove_feature
-from model.neural_network import doNN, doFastText, doNN_glove
+from feature_extractor.topic_feature_extractor import add_lda_feature
+from feature_extractor.topic_feature_extractor import add_svd_feature
+from model.cnn import doNN
+from model.fast_text import doFastText
+from model.glove_dnn import doNN_glove
 from model.naive_bayes import run_mnbs
 from model.xgboost import run_kfold_xgb
 
-# Read the train and test dataset and check the top few lines #
+# Read the train and test dataset and check the top few lines.
 train_df = pd.read_csv("./input/train.csv")
 test_df = pd.read_csv("./input/test.csv")
-print("Number of rows in train dataset : ", train_df.shape[0])
-print("Number of rows in test dataset : ", test_df.shape[0])
 
-# Prepare the data for modeling ##
+print("train_df.shape: ", train_df.shape)
+print("test_df.shape: ", test_df.shape)
+
+train_df = add_text_feature(train_df)
+test_df = add_text_feature(test_df)
+print("Text features added...")
+
+train_df, test_df = add_lda_feature(train_df, test_df)
+train_df, test_df = add_svd_feature(train_df, test_df)
+print("LDA and SVD features added...")
+
+train_df, test_df, train_df_glove, test_df_glove, word_vecs = \
+    add_glove_feature(train_df, test_df)
+print("GloVe features added...")
+
 author_mapping_dict = {"EAP": 0, "HPL": 1, "MWS": 2}
 train_y = train_df["author"].map(author_mapping_dict)
 
-for df in [train_df, test_df]:
-    df = add_text_feature(df)
+train_df, test_df = run_mnbs(train_df, test_df, train_y)
+print("MNB finished...")
 
-
-glove_vecs_train, glove_vecs_test, embeddings_index = add_glove_feature(
-    train_df["text"], test_df["text"]
+train_df, test_df = doNN_glove(
+    train_df, test_df, train_y, train_df_glove, test_df_glove
 )
-train_df[["sent_vec_" + str(i) for i in range(100)]] = pd.DataFrame(
-    glove_vecs_train.tolist()
-)
-test_df[["sent_vec_" + str(i) for i in range(100)]] = pd.DataFrame(
-    glove_vecs_test.tolist()
-)
-print("Glove sentence vector finished...")
+print("GloVe DNN finished...")
 
 train_df, test_df = doFastText(train_df, test_df, train_y)
 print("FastText finished...")
+
 train_df, test_df = doNN(train_df, test_df, train_y)
-print("NN finished...")
-train_df, test_df = doNN_glove(
-    train_df, test_df, train_y, glove_vecs_train, glove_vecs_test
-)
-print("NN Glove finished...")
-
-train_df, test_df = run_mnbs(train_df, train_y, test_df)
-
-cols_to_drop = ["id", "text", "split", "sid", "pos_tag"]
-train_X = train_df.drop(cols_to_drop + ["author"], axis=1)
-test_X = test_df.drop(cols_to_drop, axis=1)
+print("CNN finished...")
 
 train_df.to_pickle("./output/train_df.pkl")
 test_df.to_pickle("./output/test_df.pkl")
 
-pred_full_test = run_kfold_xgb(train_X, train_y, test_X)
+cols_to_drop = ["id", "text"]
+train_df = train_df.drop(columns=cols_to_drop + ["author"])
+test_df = test_df.drop(columns=cols_to_drop)
+
+pred_full_test = run_kfold_xgb(train_df, test_df, train_y)
+print("XGBoost finished...")
 
 out_df = pd.DataFrame(pred_full_test)
 out_df.columns = ["EAP", "HPL", "MWS"]

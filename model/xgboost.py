@@ -48,12 +48,14 @@ def run_xgb(
     pred_test_y = model.predict(xgtest, ntree_limit=model.best_ntree_limit)
     if test_X2 is not None:
         xgtest2 = xgb.DMatrix(test_X2)
-        pred_test_y2 = model.predict(xgtest2, ntree_limit=model.best_ntree_limit)
+        pred_test_y2 = model.predict(
+            xgtest2, ntree_limit=model.best_ntree_limit)
     return pred_test_y, pred_test_y2, model
 
 
-def run_kfold_xgb(train_X, train_y, test_X, n_splits=5):
-    kf = model_selection.KFold(n_splits=n_splits, shuffle=True, random_state=2017)
+def run_kfold_xgb(train_X, test_X, train_y, n_splits=5):
+    kf = model_selection.KFold(
+        n_splits=n_splits, shuffle=True, random_state=2017)
     cv_scores = []
     pred_full_test = 0
     pred_train = np.zeros([train_X.shape[0], 3])

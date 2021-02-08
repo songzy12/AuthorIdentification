@@ -5,7 +5,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn import model_selection, metrics
 
 
-def run_mnb(train_tfidf, train_y, test_tfidf):
+def run_mnb(train_tfidf, test_tfidf, train_y):
     cv_scores = []
     pred_full_test = 0
     pred_train = np.zeros([train_tfidf.shape[0], 3])
@@ -28,15 +28,15 @@ def run_mnb(train_tfidf, train_y, test_tfidf):
     return pred_train, pred_full_test
 
 
-def run_mnbs(train_df, train_y, test_df):
+def run_mnbs(train_df, test_df, train_y):
     # Fit transform the count vectorizer.
-    tfidf_vec = CountVectorizer(stop_words="english", ngram_range=(1, 3))
+    tfidf_vec = CountVectorizer(ngram_range=(1, 2))
     tfidf_vec.fit(train_df["text"].values.tolist() +
                   test_df["text"].values.tolist())
     train_tfidf = tfidf_vec.transform(train_df["text"].values.tolist())
     test_tfidf = tfidf_vec.transform(test_df["text"].values.tolist())
 
-    pred_train, pred_full_test = run_mnb(train_tfidf, train_y, test_tfidf)
+    pred_train, pred_full_test = run_mnb(train_tfidf, test_tfidf, train_y)
 
     # Add the predictions as new features.
     train_df["nb_cvec_eap"] = pred_train[:, 0]
@@ -48,38 +48,20 @@ def run_mnbs(train_df, train_y, test_df):
     print("Naive Bayesian Count Vector finished...")
 
     # Fit transform the tfidf vectorizer.
-    tfidf_vec = CountVectorizer(ngram_range=(1, 7), analyzer="char")
-    tfidf_vec.fit(train_df["text"].values.tolist() +
-                  test_df["text"].values.tolist())
-    train_tfidf = tfidf_vec.transform(train_df["text"].values.tolist())
-    test_tfidf = tfidf_vec.transform(test_df["text"].values.tolist())
-
-    pred_train, pred_full_test = run_mnb(train_tfidf, train_y, test_tfidf)
-
-    # Add the predictions as new features.
-    train_df["nb_cvec_char_eap"] = pred_train[:, 0]
-    train_df["nb_cvec_char_hpl"] = pred_train[:, 1]
-    train_df["nb_cvec_char_mws"] = pred_train[:, 2]
-    test_df["nb_cvec_char_eap"] = pred_full_test[:, 0]
-    test_df["nb_cvec_char_hpl"] = pred_full_test[:, 1]
-    test_df["nb_cvec_char_mws"] = pred_full_test[:, 2]
-    print("Naive Bayersian Count Vector Char finished...")
-
-    # Fit transform the tfidf vectorizer.
-    tfidf_vec = TfidfVectorizer(ngram_range=(1, 5), analyzer="char")
+    tfidf_vec = TfidfVectorizer(ngram_range=(1, 2))
     tfidf_vec = tfidf_vec.fit(train_df["text"].values.tolist() +
                               test_df["text"].values.tolist())
     train_tfidf = tfidf_vec.transform(train_df["text"].values.tolist())
     test_tfidf = tfidf_vec.transform(test_df["text"].values.tolist())
 
-    pred_train, pred_full_test = run_mnb(train_tfidf, train_y, test_tfidf)
+    pred_train, pred_full_test = run_mnb(train_tfidf, test_tfidf, train_y)
 
     # Add the predictions as new features.
-    train_df["nb_tfidf_char_eap"] = pred_train[:, 0]
-    train_df["nb_tfidf_char_hpl"] = pred_train[:, 1]
-    train_df["nb_tfidf_char_mws"] = pred_train[:, 2]
-    test_df["nb_tfidf_char_eap"] = pred_full_test[:, 0]
-    test_df["nb_tfidf_char_hpl"] = pred_full_test[:, 1]
-    test_df["nb_tfidf_char_mws"] = pred_full_test[:, 2]
-    print("Naive Bayersian TFIDF Vector Char finished...")
+    train_df["nb_tfidf_eap"] = pred_train[:, 0]
+    train_df["nb_tfidf_hpl"] = pred_train[:, 1]
+    train_df["nb_tfidf_mws"] = pred_train[:, 2]
+    test_df["nb_tfidf_eap"] = pred_full_test[:, 0]
+    test_df["nb_tfidf_hpl"] = pred_full_test[:, 1]
+    test_df["nb_tfidf_mws"] = pred_full_test[:, 2]
+    print("Naive Bayersian TFIDF Vector finished...")
     return train_df, test_df
